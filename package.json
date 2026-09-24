@@ -1,0 +1,34 @@
+{
+  "name": "vector-breakout",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ベクトル分解タイムトライアル（Vector Breakout）— 高1物理基礎向け 超高速ベクトル成分分解トレーニング",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "npx serve out",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "firebase": "^12.19.0",
+    "katex": "^0.18.9",
+    "next": "^16.3.6",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/katex": "^0.16.8",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.0",
+    "vitest": "^5.0.1"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}
