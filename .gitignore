@@ -21,3 +21,6 @@ firestore-debug.log
 .DS_Store
 .vscode/
 .idea/
+
+# Claude デスクトップアプリが置くファイル
+Claude outputs/

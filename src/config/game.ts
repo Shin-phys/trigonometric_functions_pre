@@ -1,30 +1,31 @@
 /**
- * ゲームルール・スコア計算の定数（仕様書 6節）。
+ * ゲームルール・到達判定の定数（仕様書 6節）。
  * 授業での試行結果に応じて、ここの数値だけを調整すればよい。
  */
 export const GAME = {
-  /** 選べる制限時間（秒） */
-  durationOptions: [45, 60, 90, 120],
+  /** この数だけ正解したらゴール */
+  goalCorrect: 12,
   /** 開始前カウントダウン（秒） */
   countdownSec: 3,
   /** 正解時に次の問題へ進むまでの間（ミリ秒） */
   correctPauseMs: 120,
-  /** 誤答時に「対辺＝赤／隣辺＝青」を見せる時間（ミリ秒）。この間は操作不可＝実質のペナルティ */
-  wrongFlashMs: 700,
+  /**
+   * 誤答時のロック時間（ミリ秒）。この間「対辺＝赤／隣辺＝青」を表示し、操作できない。
+   * 誤答した問題は正解数に数えず、次は新しい問題に進む。
+   * 2択で当てずっぽうに押すと、1問正解するのに平均「2回押す＋ロック1回」かかるので、
+   * ロックを長くするほど適当押しが不利になる。
+   */
+  wrongLockMs: 1500,
 } as const;
 
 /**
- * スコア計算（lib/scoring.ts で使用）
- *   1問の得点 = base + 速さボーナス（fastMs 以下で満点、slowMs 以上で 0、その間は直線）
- *   最終スコア = 得点合計 × 正答率^accuracyExponent
- * accuracyExponent を大きくするほど「正確さ」を重視する。
+ * 到達（自動化）判定。直近 windowSessions 回分のプレイをまとめて判定する。
+ *   正答率 ≥ minAccuracy かつ 正解時の反応時間の中央値 ≤ maxMedianMs
  */
-export const SCORING = {
-  basePerCorrect: 100,
-  maxSpeedBonus: 50,
-  fastMs: 500,
-  slowMs: 1500,
-  accuracyExponent: 2,
+export const MASTERY = {
+  windowSessions: 3,
+  minAccuracy: 0.95,
+  maxMedianMs: 1000,
 } as const;
 
 /** 教員ダッシュボード */

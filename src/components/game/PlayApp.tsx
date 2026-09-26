@@ -1,8 +1,8 @@
 "use client";
 /**
- * 生徒用画面（/play）の画面遷移：参加 → ステージ選択 → プレイ → リザルト
+ * 生徒用画面（/play）の画面遷移：参加 → ステージ選択 → プレイ → リザルト（→ 復習）
  * URL で固定もできる（教員が配るリンク用）：
- *   /play/?class=1A&stage=S3&t=60   … クラス・ステージ・制限時間を指定
+ *   /play/?class=1A&stage=S1   … クラス・ステージを指定
  */
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -12,43 +12,38 @@ import { getStage, type StageConfig } from "@/config/stages";
 import { normalizeClassCode } from "@/lib/date";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { saveResult, updatePresence, type PresenceStatus } from "@/lib/firebase/repository";
-import { summarize, type AnswerLog, type PlaySummary } from "@/lib/scoring";
-import {
-  appendHistory,
-  loadHistory,
-  loadProfile,
-  saveProfile,
-  type HistoryEntry,
-  type Profile,
-} from "@/lib/storage/local";
+import { judgeMastery, summarize, type AnswerLog, type MasteryResult, type PlaySummary } from "@/lib/scoring";
+import { appendHistory, loadHistory, loadProfile, saveProfile, type Profile } from "@/lib/storage/local";
 import { GameScreen } from "./GameScreen";
 import { JoinForm } from "./JoinForm";
 import { ResultScreen } from "./ResultScreen";
+import { ReviewScreen } from "./ReviewScreen";
 import { StageSelect } from "./StageSelect";
+
+type ResultData = {
+  stage: StageConfig;
+  summary: PlaySummary;
+  wrongLogs: AnswerLog[];
+  prevMs: number | null;
+  bestMs: number | null;
+  mastery: MasteryResult;
+};
 
 type View =
   | { name: "join" }
   | { name: "select" }
-  | { name: "game"; stage: StageConfig; durationSec: number; round: number }
-  | {
-      name: "result";
-      stage: StageConfig;
-      durationSec: number;
-      summary: PlaySummary;
-      prev: HistoryEntry | null;
-      best: number | null;
-    };
+  | { name: "game"; stage: StageConfig; round: number }
+  | ({ name: "result" } & ResultData)
+  | ({ name: "review" } & ResultData);
 
 export function PlayApp() {
   const params = useSearchParams();
   const fixedStage = getStage(params.get("stage"));
-  const fixedDuration = Number(params.get("t")) || null;
   const classFromUrl = params.get("class");
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [initialProfile, setInitialProfile] = useState<Profile | null>(null);
   const [view, setView] = useState<View>({ name: "join" });
-  const [duration, setDuration] = useState<number | null>(fixedDuration);
   const [saveState, setSaveState] = useState<"local" | "saving" | "saved" | "error">("local");
   const status = useRef<{ status: PresenceStatus; stageId: string | null }>({ status: "lobby", stageId: null });
 
@@ -79,38 +74,49 @@ export function PlayApp() {
 
   const start = useCallback(
     (stage: StageConfig) => {
-      const durationSec = duration ?? stage.defaultDurationSec;
-      setView((v) => ({ name: "game", stage, durationSec, round: v.name === "game" ? v.round + 1 : Date.now() }));
+      setView({ name: "game", stage, round: Date.now() });
       presence("playing", stage.id);
     },
-    [duration, presence],
+    [presence],
   );
+
+  const toSelect = () => {
+    setView({ name: "select" });
+    presence("lobby", null);
+  };
 
   const join = (p: Profile) => {
     saveProfile(p);
     setProfile(p);
-    if (fixedStage) {
-      const durationSec = duration ?? fixedStage.defaultDurationSec;
-      setView({ name: "game", stage: fixedStage, durationSec, round: Date.now() });
-    } else {
-      setView({ name: "select" });
-    }
+    setView(fixedStage ? { name: "game", stage: fixedStage, round: Date.now() } : { name: "select" });
   };
 
   // profile 設定直後に presence を送る
   useEffect(() => {
     if (!profile) return;
     presence(view.name === "game" ? "playing" : "lobby", view.name === "game" ? view.stage.id : null);
+    // profile が変わったときだけ送る（view・presence は意図的に依存に入れない）
   }, [profile]);
 
   const finish = useCallback(
-    (stage: StageConfig, durationSec: number) => (logs: AnswerLog[]) => {
-      const summary = summarize(logs);
+    (stage: StageConfig) => (logs: AnswerLog[], clearMs: number) => {
+      const summary = summarize(logs, clearMs);
       const history = loadHistory(stage.id);
-      const prev = history.length ? history[history.length - 1] : null;
-      const best = history.length ? Math.max(...history.map((h) => h.score)) : null;
-      appendHistory({ stageId: stage.id, score: summary.score, accuracy: summary.accuracy, avgMs: summary.avgMs, at: Date.now() });
-      setView({ name: "result", stage, durationSec, summary, prev, best });
+      const prevMs = history.length ? history[history.length - 1].clearMs : null;
+      const bestMs = history.length ? Math.min(...history.map((h) => h.clearMs)) : null;
+      const entry = {
+        stageId: stage.id,
+        clearMs: summary.clearMs,
+        correct: summary.correct,
+        total: summary.total,
+        medianMs: summary.medianMs,
+        rts: summary.rts,
+        at: Date.now(),
+      };
+      appendHistory(entry);
+      const mastery = judgeMastery([...history, entry]);
+      const wrongLogs = logs.filter((l) => !l.correct);
+      setView({ name: "result", stage, summary, wrongLogs, prevMs, bestMs, mastery });
       presence("done", stage.id);
 
       if (online && classCode) {
@@ -118,13 +124,12 @@ export function PlayApp() {
         saveResult(classCode, {
           name: profile?.name ?? "",
           stageId: stage.id,
-          durationSec,
-          score: summary.score,
+          clearMs: summary.clearMs,
           correct: summary.correct,
           total: summary.total,
           accuracy: summary.accuracy,
-          avgMs: summary.avgMs,
-          prevScore: prev?.score ?? null,
+          medianMs: summary.medianMs,
+          mastered: mastery.mastered,
           patternStats: summary.patternStats,
         })
           .then((ok) => setSaveState(ok ? "saved" : "error"))
@@ -137,16 +142,15 @@ export function PlayApp() {
   );
 
   if (view.name === "game") {
+    return <GameScreen key={view.round} stage={view.stage} onFinish={finish(view.stage)} onQuit={toSelect} />;
+  }
+
+  if (view.name === "review") {
     return (
-      <GameScreen
-        key={view.round}
+      <ReviewScreen
         stage={view.stage}
-        durationSec={view.durationSec}
-        onFinish={finish(view.stage, view.durationSec)}
-        onQuit={() => {
-          setView({ name: "select" });
-          presence("lobby", null);
-        }}
+        problems={view.wrongLogs.map((l) => l.problem)}
+        onDone={() => setView({ ...view, name: "result" })}
       />
     );
   }
@@ -168,20 +172,22 @@ export function PlayApp() {
         <span className="block text-sm font-normal text-slate-400">Vector Breakout</span>
       </h1>
 
-      {view.name === "join" && <JoinForm key={initialProfile?.classCode ?? "none"} initial={initialProfile} online={online} onJoin={join} />}
-      {view.name === "select" && <StageSelect duration={duration} onDuration={setDuration} onSelect={start} />}
+      {view.name === "join" && (
+        <JoinForm key={initialProfile?.classCode ?? "none"} initial={initialProfile} online={online} onJoin={join} />
+      )}
+      {view.name === "select" && <StageSelect onSelect={start} />}
       {view.name === "result" && (
         <ResultScreen
           stage={view.stage}
           summary={view.summary}
-          prev={view.prev}
-          best={view.best}
+          wrongLogs={view.wrongLogs}
+          prevMs={view.prevMs}
+          bestMs={view.bestMs}
+          mastery={view.mastery}
           saveState={saveState}
           onRetry={() => start(view.stage)}
-          onBack={() => {
-            setView({ name: "select" });
-            presence("lobby", null);
-          }}
+          onBack={toSelect}
+          onReview={() => setView({ ...view, name: "review" })}
         />
       )}
     </main>

@@ -15,7 +15,6 @@ export const PATTERN_LABEL: Record<string, string> = {
 export const ROLE_LABEL: Record<string, string> = {
   opposite: "対辺（sin）",
   adjacent: "隣辺（cos）",
-  hypotenuse: "斜辺（力そのもの）",
   horizontal: "水平な力（tan）",
   oblique: "斜めの力（1/cos）",
 };
@@ -23,8 +22,6 @@ export const ROLE_LABEL: Record<string, string> = {
 /** Stage 0 の候補角（lib/problems/generators/angle.ts の id）の説明 */
 export const ANGLE_CANDIDATE_LABEL: Record<string, string> = {
   "O-vec-other": "力ともう一方の軸（90°−θ）",
-  "O-vec-negref": "力と基準線の逆向き（180°−θ）",
-  "O-vec-negother": "力ともう一方の軸の逆向き（90°+θ）",
   "P-alt": "先端の錯角（θ）",
   "P-other": "先端の角（90°−θ）",
   "G-mg-normal": "mg と斜面垂直線（θ）",
@@ -32,9 +29,7 @@ export const ANGLE_CANDIDATE_LABEL: Record<string, string> = {
   "G-up-normalout": "鉛直上向きと垂直線の外向き（θ）",
   "G-horiz-slopedown": "水平線と斜面下向き（θ）",
   "G-upslope-up": "斜面上向きと鉛直上向き（90°−θ）",
-  "G-mg-upslope": "mg と斜面上向き（90°+θ）",
   "G-horiz-normalout": "水平線と垂直線の外向き（90°−θ）",
-  "G-horizR-slopedown": "逆側の水平線と斜面下向き（180°−θ）",
   "T-top": "斜面の頂角（90°−θ）",
 };
 

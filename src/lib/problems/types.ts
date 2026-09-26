@@ -60,7 +60,12 @@ export type Choice = {
   id: string;
   /** KaTeX で描画する TeX 文字列 */
   tex: string;
+  /** ボタンの縁の色（sin＝赤・cos＝青。フィードバックの色とそろえる） */
+  tone?: "sin" | "cos";
 };
+
+/** 山札の 1 枚：どの図形パターンで、どの答えになる問題を出すか */
+export type Slot = { pattern: Pattern; answer: string };
 
 export type Problem = {
   stageId: string;

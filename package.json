@@ -1,6 +1,6 @@
 {
   "name": "vector-breakout",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "ベクトル分解タイムトライアル（Vector Breakout）— 高1物理基礎向け 超高速ベクトル成分分解トレーニング",
   "scripts": {

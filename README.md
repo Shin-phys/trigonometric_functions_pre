@@ -3,8 +3,8 @@
 高1物理基礎向けの **超高速ベクトル成分分解トレーニング**。授業冒頭 1〜3 分の帯活動として、
 「図の見た目 → 成分（数式）」の変換を反射レベルまで自動化させることを狙う。
 
-- 生徒用：`/play/` … クラスコード＋出席番号で参加 → 60 秒タイムトライアル → リザルト
-- 教員用：`/dashboard/` … 参加人数・平均正答率・TOP5・誤答率の高い出題パターンをリアルタイム投影
+- 生徒用：`/play/` … クラスコード＋出席番号で参加 → 12 問正解でゴールのタイムアタック → リザルト（間違えた問題の図つき）
+- 教員用：`/dashboard/` … 参加人数・平均正答率・タイム TOP5・到達者数・誤答率の高い出題パターンをリアルタイム投影
 
 仕様書は [docs/SPEC.md](docs/SPEC.md)、フォルダ構成と改訂の手順は [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
@@ -14,25 +14,27 @@
 
 | ID | 名前 | 内容 |
 |---|---|---|
-| S0 | 角度認識 | 光っている角が θ / 90°−θ / 90°+θ / 180°−θ のどれか |
-| S1 | 平面分解 | 水平パターン・鉛直パターン（F の分解） |
-| S2 | 斜面分解 | 斜面上の重力 mg の分解（物体側にも θ を表示） |
+| S0 | 角度認識 | 光っている角が θ か 90°−θ か |
+| S1 | 平面分解 | 水平・鉛直パターンで Fsinθ か Fcosθ か |
+| S2 | 斜面分解 | 斜面上の重力で mgsinθ か mgcosθ か（物体側にも θ を表示） |
 | S3 | ランダム | 全パターン混合（斜面は底角の θ だけ表示） |
-| A1 | 発展 | 3 力のつり合いで mg tanθ と mg/cosθ を使い分け |
+| A1 | 発展 | 3 力のつり合いで mg tanθ か mg/cosθ か |
+
+- すべて 2 択・並び固定（左 sin・右 cos）。12 問正解でゴール、まちがえると 1.5 秒ストップ
+- 到達判定：直近 3 回で正答率 95%以上 かつ 正解時の反応時間の中央値 1.0 秒以下
 
 ## 授業での使い方（URL で固定できる）
 
 ```
-https://shin-phys.github.io/trigonometric_functions_pre/play/?class=1A&stage=S1&t=60
+https://shin-phys.github.io/trigonometric_functions_pre/play/?class=1A&stage=S1
 https://shin-phys.github.io/trigonometric_functions_pre/dashboard/?class=1A
 ```
 
 - `class` … クラスコード（入力済みの状態で開く）
 - `stage` … `S0`〜`S3`, `A1`（指定するとステージ選択を飛ばして開始）
-- `t` … 制限時間（秒）
 - ダッシュボードに `&demo=1` を付けると見本データで表示（Firebase なしで確認用）
 
-PC では キー `1`〜`4` でも回答できる。
+PC では キー `←` `→`（または `1` `2`、`F` `J`）でも回答できる。
 
 ---
 
@@ -59,15 +61,13 @@ Firebase の準備は [docs/firebase-setup.md](docs/firebase-setup.md)。
 2. Firebase を使う場合は **Settings → Secrets and variables → Actions → Variables** に
    `NEXT_PUBLIC_FIREBASE_*` の 6 つを登録（[docs/firebase-setup.md](docs/firebase-setup.md)）
 
-### 最初の push
+### 改訂を公開する
 
 ```bash
-cd 三角関数ドリル
-git init -b main
+npm test
 git add .
-git commit -m "初版：Vector Breakout v2 仕様の実装"
-git remote add origin https://github.com/Shin-phys/trigonometric_functions_pre.git
-git push -u origin main
+git commit -m "変更内容を一言で"
+git push
 ```
 
 ## 技術スタック

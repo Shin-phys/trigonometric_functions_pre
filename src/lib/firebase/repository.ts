@@ -23,14 +23,15 @@ export type ResultDoc = {
   uid: string;
   name: string;
   stageId: string;
-  durationSec: number;
-  score: number;
+  /** クリアタイム（ミリ秒） */
+  clearMs: number;
   correct: number;
   total: number;
   accuracy: number;
-  avgMs: number;
-  /** 同じステージの前回スコア（伸び率ランキング用）。初回は null */
-  prevScore: number | null;
+  /** 正解時の反応時間の中央値（ミリ秒） */
+  medianMs: number;
+  /** このプレイを含む直近の記録で到達判定を満たしたか（端末側で判定） */
+  mastered: boolean;
   patternStats: Record<string, PatternStat>;
   createdAt?: Timestamp;
 };

@@ -19,8 +19,8 @@ trigonometric_functions_pre/
 ├── tests/                       自動テスト（出題ロジック・スコア計算）
 └── src/
     ├── config/                  ★ 調整用の設定値（ここを直すのが基本）
-    │   ├── stages.ts            ステージ構成・θの範囲・出題比率・制限時間
-    │   ├── game.ts              スコア式の係数・フィードバック時間・ダッシュボード設定
+    │   ├── stages.ts            ステージ構成・山札（12問の内訳）・θの範囲
+    │   ├── game.ts              ゴール問題数・誤答ロック時間・到達判定の基準・ダッシュボード設定
     │   └── theme.ts             図の配色（強調色・対辺赤・隣辺青）
     ├── content/
     │   └── labels.ts            画面の日本語ラベル（出題パターン名・誤答集計の表示名）
@@ -28,23 +28,24 @@ trigonometric_functions_pre/
     │   ├── problems/            ★ 出題ロジック（React に依存しない純粋関数）
     │   │   ├── types.ts         問題・図のデータ型
     │   │   ├── scenes.ts        図の「舞台」（平面・斜面・つるす・押す）
-    │   │   ├── choices.ts       選択肢とダミー生成ルール
+    │   │   ├── choices.ts       2択の選択肢（並び固定）
     │   │   ├── geometry.ts      ベクトル計算・鏡像反転
     │   │   ├── rng.ts           乱数（テスト用にシード固定可）
     │   │   ├── generators/
     │   │   │   ├── angle.ts     Stage 0 角度認識
     │   │   │   ├── component.ts Stage 1〜3 成分選択
     │   │   │   └── tan.ts       発展モード
-    │   │   └── index.ts         generator の振り分け
-    │   ├── scoring.ts           スコア計算・1プレイの集計
+    │   │   └── index.ts         山札と generator の振り分け
+    │   ├── scoring.ts           1プレイの集計・到達判定
     │   ├── dashboard.ts         ダッシュボードの集計
     │   ├── date.ts              日付キー・クラスコード正規化
+    │   ├── format.ts            秒の表示形式
     │   ├── firebase/            Firebase 初期化と読み書き（ここ以外から Firestore を触らない）
     │   └── storage/local.ts     端末内保存（前回の自分との比較）
-    ├── hooks/useGame.ts         タイムトライアルの進行（カウントダウン・タイマー・判定）
+    ├── hooks/useGame.ts         タイムアタックの進行（カウントダウン・経過時間・誤答ロック・ゴール判定）
     ├── components/
     │   ├── figure/FigureSvg.tsx 図の描画（問題の中身を知らない描画専用）
-    │   ├── game/                生徒用画面の部品
+    │   ├── game/                生徒用画面の部品（プレイ・リザルト・復習）
     │   ├── dashboard/           教員用ダッシュボード
     │   └── ui/                  KaTeX・Service Worker 登録
     └── app/                     ルーティング（/ , /play/ , /dashboard/）
@@ -53,46 +54,47 @@ trigonometric_functions_pre/
 ## データの流れ
 
 ```
-config/stages.ts ──▶ lib/problems（generator）──▶ Problem { figure, choices, correctId, statKey }
+config/stages.ts（deck）──▶ lib/problems（山札 → generator）──▶ Problem { figure, choices, correctId, statKey }
                                                        │
                            components/figure/FigureSvg ◀┘  （図を描く）
-                           components/game/ChoiceGrid  ◀── （4択）
+                           components/game/ChoiceGrid  ◀── （2択・並び固定）
                                      │ 回答
                                      ▼
-                     hooks/useGame ──▶ AnswerLog[] ──▶ lib/scoring.summarize()
-                                                          │
-                     lib/storage/local（前回比較） ◀───────┤
-                     lib/firebase/repository（送信）◀──────┘ ──▶ dashboard（集計・投影）
+                     hooks/useGame ──▶ AnswerLog[]（図つき）──▶ lib/scoring.summarize()
+                                     │                             │
+                     ResultScreen（間違えた問題の図・復習）  lib/storage/local ──▶ judgeMastery()（到達判定）
+                                                                   │
+                                           lib/firebase/repository（送信。図は送らない）──▶ dashboard
 ```
 
 ## よくある改訂と、直す場所
 
 | やりたいこと | 直すファイル |
 |---|---|
-| 制限時間の選択肢・標準時間を変える | `config/game.ts` の `durationOptions`、`config/stages.ts` の `defaultDurationSec` |
-| 正確さ重視の度合いを変える | `config/game.ts` の `SCORING.accuracyExponent`（大きいほど正確さ重視） |
-| 誤答時フラッシュの長さを変える | `config/game.ts` の `wrongFlashMs` |
+| ゴールの問題数を変える | `config/game.ts` の `goalCorrect`（山札の合計数もそろえる） |
+| 誤答ロックの長さを変える | `config/game.ts` の `wrongLockMs` |
+| 到達判定の基準を変える | `config/game.ts` の `MASTERY`（回数・正答率・中央値） |
+| 12 問の内訳を変える | `config/stages.ts` の `deck` |
 | θ の範囲を変える | `config/stages.ts` の `thetaRange` |
-| 対辺／隣辺／斜辺の出題比率を変える | `config/stages.ts` の `roleWeights` |
 | Stage 3 の斜面で物体側の θ も出す | `config/stages.ts` S3 の `showDerivedAngle: true` |
-| 選択肢の並びを固定にする | `config/stages.ts` の `shuffleChoices: false` |
+| 選択肢の並び・表記を変える | `lib/problems/choices.ts` |
 | 強調色・赤青の色を変える | `config/theme.ts` |
 | 画面の文言・誤答パターンの表示名 | `content/labels.ts`、各画面部品 |
 | 新しいステージを追加 | `config/stages.ts` に 1 件追加（既存 generator を使うなら他は不要） |
 | 新しい図形パターンを追加 | `lib/problems/scenes.ts` に舞台を追加 → 該当 generator で使う → `types.ts` の `Pattern` と `labels.ts` に追記 |
-| Stage 0 の出題する角を増やす | `generators/angle.ts` の `*_CANDIDATES` に「頂点と 2 方向」を追加（正解は自動判定）→ `labels.ts` に表示名 |
-| ダミー選択肢のルールを変える | `lib/problems/choices.ts` |
+| Stage 0 の出題する角を増やす | `generators/angle.ts` の `*_CANDIDATES` に「頂点と 2 方向」を追加（θ か 90°−θ かは自動判定）→ `labels.ts` に表示名 |
 
 改訂したら `npm test` を実行する。テストは
-「4択に正解が含まれる」「基本モードに tan が混入しない」「強調した矢印の長さ比が正解の式と一致する」
-「Stage 0 の強調角の実測値が正解と一致する」などを 500 問ずつ確認している。
+「山札が 12 問・答えが半々」「2択・並び固定・F と mg を混ぜない」「基本モードに tan が混入しない」
+「強調した矢印の長さ比が正解の式と一致する」「Stage 0 の強調角の実測値が正解と一致する」
+「適当押し（速いが不正確）は到達判定を通らない」などを確認している。
 
 ## データモデル（Firestore）
 
 ```
 classes/{classCode}/days/{yyyymmdd}/results/{autoId}   1 プレイ 1 件（追記のみ）
-  uid, name, stageId, durationSec, score, correct, total, accuracy, avgMs,
-  prevScore（同ステージの前回スコア・伸び率ランキング用）,
+  uid, name, stageId, clearMs（クリアタイム）, correct, total, accuracy,
+  medianMs（正解時の反応時間の中央値）, mastered（到達判定を満たしたか）,
   patternStats { "S1:vertical:opposite": { n, wrong }, ... },  createdAt
 
 classes/{classCode}/days/{yyyymmdd}/presence/{uid}     参加状況（heartbeat 30 秒）
@@ -106,7 +108,7 @@ classes/{classCode}/days/{yyyymmdd}/presence/{uid}     参加状況（heartbeat 
 
 `{ステージID}:{図形パターン}:{詳細}` の形式。
 
-- S1〜S3：詳細 = `opposite`（対辺）/ `adjacent`（隣辺）/ `hypotenuse`（斜辺）
+- S1〜S3：詳細 = `opposite`（対辺）/ `adjacent`（隣辺）
 - S0：詳細 = 候補角の ID（`G-mg-normal` など。`generators/angle.ts`）
 - A1：詳細 = `horizontal`（mg tanθ）/ `oblique`（mg/cosθ）
 

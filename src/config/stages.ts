@@ -1,10 +1,22 @@
 /**
  * ステージ定義（仕様書 5節）。
- * ステージの追加・並べ替え・難易度調整はこのファイルだけで完結するように作っている。
+ * ステージの追加・並べ替え・出題構成の調整はこのファイルだけで完結するように作っている。
+ *
+ * deck（山札）… 1 ラウンド 12 問の中身。ここに書いた構成をシャッフルして出題する。
+ *   毎回同じ構成なので、クリアタイムを公平に比べられる。
+ *   誤答で 12 問を使い切ったら、同じ構成の山札を新しく切って続ける。
  */
-import type { Pattern, Role } from "@/lib/problems/types";
+import type { Pattern } from "@/lib/problems/types";
 
 export type GeneratorKind = "angle" | "component" | "tan";
+
+/**
+ * 山札の 1 種類。answer は generator ごとに意味が違う。
+ *   angle     : "theta" | "90-theta"
+ *   component : "opposite"（対辺＝sin） | "adjacent"（隣辺＝cos）
+ *   tan       : "horizontal"（mg tanθ） | "oblique"（mg/cosθ）
+ */
+export type DeckItem = { pattern: Pattern; answer: string; count: number };
 
 export type StageConfig = {
   id: string;
@@ -13,20 +25,12 @@ export type StageConfig = {
   subtitle: string;
   /** 使う問題生成器（lib/problems/generators/*） */
   generator: GeneratorKind;
-  /** 出題する図形パターン（ランダムに選ぶ） */
-  patterns: Pattern[];
+  /** 1 ラウンドの出題構成（合計が 1 ラウンドの問題数の目安） */
+  deck: DeckItem[];
   /** θの範囲 [最小, 最大]（度） */
   thetaRange: [number, number];
-  /** 標準の制限時間（秒） */
-  defaultDurationSec: number;
-  /** 選択肢の並びを毎問シャッフルするか */
-  shuffleChoices: boolean;
-  /** component: 強調する辺の出題比率 */
-  roleWeights?: Record<Role, number>;
   /** component/incline: 物体側（mg と斜面垂直線の間）にも θ を表示するか */
   showDerivedAngle?: boolean;
-  /** angle: 強調した角が θ と等しい問題の割合（0〜1） */
-  thetaEqualRatio?: number;
 };
 
 export const STAGES: StageConfig[] = [
@@ -34,13 +38,17 @@ export const STAGES: StageConfig[] = [
     id: "S0",
     mode: "basic",
     title: "Stage 0　角度認識",
-    subtitle: "赤く光る角は θ？ それとも 90°−θ？",
+    subtitle: "光る角は θ？ 90°−θ？",
     generator: "angle",
-    patterns: ["incline", "horizontal", "vertical"],
+    deck: [
+      { pattern: "horizontal", answer: "theta", count: 1 },
+      { pattern: "horizontal", answer: "90-theta", count: 1 },
+      { pattern: "vertical", answer: "theta", count: 1 },
+      { pattern: "vertical", answer: "90-theta", count: 1 },
+      { pattern: "incline", answer: "theta", count: 4 },
+      { pattern: "incline", answer: "90-theta", count: 4 },
+    ],
     thetaRange: [20, 70],
-    defaultDurationSec: 45,
-    shuffleChoices: false,
-    thetaEqualRatio: 0.5,
   },
   {
     id: "S1",
@@ -48,11 +56,13 @@ export const STAGES: StageConfig[] = [
     title: "Stage 1　平面分解",
     subtitle: "水平・鉛直な面での分解",
     generator: "component",
-    patterns: ["horizontal", "vertical"],
+    deck: [
+      { pattern: "horizontal", answer: "opposite", count: 3 },
+      { pattern: "horizontal", answer: "adjacent", count: 3 },
+      { pattern: "vertical", answer: "opposite", count: 3 },
+      { pattern: "vertical", answer: "adjacent", count: 3 },
+    ],
     thetaRange: [20, 70],
-    defaultDurationSec: 60,
-    shuffleChoices: true,
-    roleWeights: { opposite: 0.4, adjacent: 0.4, hypotenuse: 0.2 },
   },
   {
     id: "S2",
@@ -60,11 +70,11 @@ export const STAGES: StageConfig[] = [
     title: "Stage 2　斜面分解",
     subtitle: "斜面上の重力の分解",
     generator: "component",
-    patterns: ["incline"],
+    deck: [
+      { pattern: "incline", answer: "opposite", count: 6 },
+      { pattern: "incline", answer: "adjacent", count: 6 },
+    ],
     thetaRange: [20, 60],
-    defaultDurationSec: 60,
-    shuffleChoices: true,
-    roleWeights: { opposite: 0.45, adjacent: 0.45, hypotenuse: 0.1 },
     showDerivedAngle: true,
   },
   {
@@ -73,11 +83,15 @@ export const STAGES: StageConfig[] = [
     title: "Stage 3　ランダム",
     subtitle: "全パターン混合・実力試し",
     generator: "component",
-    patterns: ["horizontal", "vertical", "incline"],
+    deck: [
+      { pattern: "horizontal", answer: "opposite", count: 2 },
+      { pattern: "horizontal", answer: "adjacent", count: 2 },
+      { pattern: "vertical", answer: "opposite", count: 2 },
+      { pattern: "vertical", answer: "adjacent", count: 2 },
+      { pattern: "incline", answer: "opposite", count: 2 },
+      { pattern: "incline", answer: "adjacent", count: 2 },
+    ],
     thetaRange: [20, 65],
-    defaultDurationSec: 60,
-    shuffleChoices: true,
-    roleWeights: { opposite: 0.45, adjacent: 0.45, hypotenuse: 0.1 },
     // 斜面では底角の θ だけを表示（Stage 0 の力が試される）
     showDerivedAngle: false,
   },
@@ -87,10 +101,13 @@ export const STAGES: StageConfig[] = [
     title: "発展　tan との使い分け",
     subtitle: "つり合いの 2 力の比率関係",
     generator: "tan",
-    patterns: ["hang", "push"],
+    deck: [
+      { pattern: "hang", answer: "horizontal", count: 3 },
+      { pattern: "hang", answer: "oblique", count: 3 },
+      { pattern: "push", answer: "horizontal", count: 3 },
+      { pattern: "push", answer: "oblique", count: 3 },
+    ],
     thetaRange: [20, 50],
-    defaultDurationSec: 60,
-    shuffleChoices: true,
   },
 ];
 

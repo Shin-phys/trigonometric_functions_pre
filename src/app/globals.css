@@ -17,3 +17,13 @@ body {
 .katex {
   font-size: 1.1em;
 }
+
+/* 誤答ロック中の残り時間バー */
+@keyframes vb-shrink {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}

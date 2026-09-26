@@ -9,7 +9,9 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { STAGES, getStage } from "@/config/stages";
 import { describeStatKey } from "@/content/labels";
+import { MASTERY } from "@/config/game";
 import { computeStats } from "@/lib/dashboard";
+import { formatSec } from "@/lib/format";
 import { normalizeClassCode, todayKey } from "@/lib/date";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { subscribeClassDay, type PresenceDoc, type ResultDoc } from "@/lib/firebase/repository";
@@ -48,7 +50,10 @@ export function DashboardApp() {
     });
   }, [classCode, day, demo]);
 
-  const stats = useMemo(() => computeStats(results, presence, stageFilter, now), [results, presence, stageFilter, now]);
+  const stats = useMemo(
+    () => computeStats(results, presence, stageFilter, now, STAGES.map((s) => s.id)),
+    [results, presence, stageFilter, now],
+  );
 
   if (!classCode) {
     return (
@@ -124,28 +129,45 @@ export function DashboardApp() {
       <section className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Big label="参加中" value={`${stats.activeCount}人`} sub={`プレイ中 ${stats.playingCount}人`} />
         <Big label="平均正答率" value={pct(stats.avgAccuracy)} />
-        <Big label="平均スコア" value={stats.avgScore === null ? "—" : Math.round(stats.avgScore).toString()} />
+        <Big label="タイム（中央値）" value={stats.medianClearMs === null ? "—" : formatSec(stats.medianClearMs)} unit={stats.medianClearMs === null ? undefined : "秒"} />
         <Big label="プレイ回数" value={`${stats.resultCount}回`} />
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
-        <Panel title="本日のハイスコア TOP5">
+        <Panel title="本日のタイム TOP5">
           <Ranking
-            rows={stats.topScores.map((r) => ({
+            rows={stats.topTimes.map((r) => ({
               name: r.name,
-              value: r.score.toString(),
+              value: `${formatSec(r.clearMs)}秒`,
               note: `${stageShort(r.stageId)}・${pct(r.accuracy)}`,
             }))}
           />
         </Panel>
-        <Panel title="スコア伸び TOP5（前回比）">
-          <Ranking
-            rows={stats.topGrowth.map((r) => ({
-              name: r.name,
-              value: `+${r.growth}`,
-              note: `${stageShort(r.stageId)}・${r.prevScore}→${r.score}`,
-            }))}
-          />
+        <Panel title="到達者数（本日）">
+          {stats.mastery.length === 0 ? (
+            <Empty />
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {stats.mastery.map((m) => (
+                <li key={m.stageId}>
+                  <div className="flex justify-between text-lg">
+                    <span>{getStage(m.stageId)?.title ?? m.stageId}</span>
+                    <span className="font-bold tabular-nums text-emerald-400">
+                      {m.mastered}
+                      <span className="text-sm font-normal text-slate-400"> / {m.players}人</span>
+                    </span>
+                  </div>
+                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-700">
+                    <div className="h-full bg-emerald-500" style={{ width: `${(m.mastered / m.players) * 100}%` }} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-4 text-xs text-slate-500">
+            到達：直近 {MASTERY.windowSessions} 回で正答率 {Math.round(MASTERY.minAccuracy * 100)}%以上 かつ 反応の中央値{" "}
+            {formatSec(MASTERY.maxMedianMs)}秒以下
+          </p>
         </Panel>
         <Panel title="誤答率が高い出題パターン">
           {stats.weakPatterns.length === 0 ? (
@@ -177,11 +199,14 @@ export function DashboardApp() {
   );
 }
 
-function Big({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function Big({ label, value, sub, unit }: { label: string; value: string; sub?: string; unit?: string }) {
   return (
     <div className="rounded-2xl bg-slate-800 p-4 lg:p-6">
       <p className="text-slate-400">{label}</p>
-      <p className="text-4xl font-bold tabular-nums lg:text-6xl">{value}</p>
+      <p className="whitespace-nowrap text-4xl font-bold tabular-nums lg:text-6xl">
+        {value}
+        {unit && <span className="text-xl lg:text-2xl">{unit}</span>}
+      </p>
       {sub && <p className="text-sm text-slate-400">{sub}</p>}
     </div>
   );
@@ -205,7 +230,7 @@ function Ranking({ rows }: { rows: { name: string; value: string; note: string }
           <span className="w-6 text-slate-500">{i + 1}</span>
           <span className="flex-1 truncate">{r.name}</span>
           <span className="text-sm text-slate-400">{r.note}</span>
-          <span className="w-20 text-right font-bold tabular-nums">{r.value}</span>
+          <span className="whitespace-nowrap text-right font-bold tabular-nums">{r.value}</span>
         </li>
       ))}
     </ol>

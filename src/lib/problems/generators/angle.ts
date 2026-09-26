@@ -1,6 +1,6 @@
 /**
  * Stage 0：角度認識（仕様書 4-①-0）
- * 分解図の中の角を 1 つ強調し、その大きさが θ / 90°−θ / 90°+θ / 180°−θ のどれかを選ばせる。
+ * 分解図の中の角を 1 つ強調し、その大きさが θ か 90°−θ かを 2 択で選ばせる。
  * 候補の角は下の CANDIDATES に「頂点と 2 方向」で定義し、値は数値計算で判定する
  * （候補を追加しても正解を手書きする必要がない）。
  */
@@ -9,7 +9,7 @@ import { ANGLE_CHOICES } from "../choices";
 import { add, angleBetween, dir, minorArc, mirror, mul } from "../geometry";
 import { pick, pickTheta, type Rng } from "../rng";
 import { inclineScene, planeScene, toPrims, type Scene } from "../scenes";
-import type { Pattern, Prim, Problem, Vec } from "../types";
+import type { Prim, Problem, Slot, Vec } from "../types";
 
 type Candidate = {
   id: string;
@@ -26,8 +26,6 @@ const PLANE_CANDIDATES = (pattern: "horizontal" | "vertical"): Candidate[] => {
   const vec = (t: number) => (pattern === "horizontal" ? t : 90 - t);
   return [
     { id: "O-vec-other", vertex: (s) => s.anchors.O, dirs: (t) => [vec(t), oth] },
-    { id: "O-vec-negref", vertex: (s) => s.anchors.O, dirs: (t) => [vec(t), ref + 180] },
-    { id: "O-vec-negother", vertex: (s) => s.anchors.O, dirs: (t) => [vec(t), oth + 180] },
     { id: "P-alt", vertex: (s) => s.anchors.P, dirs: (t) => [vec(t) + 180, ref + 180] },
     { id: "P-other", vertex: (s) => s.anchors.P, dirs: (t) => [vec(t) + 180, oth + 180] },
   ];
@@ -40,9 +38,7 @@ const INCLINE_CANDIDATES: Candidate[] = [
   { id: "G-up-normalout", vertex: (s) => s.anchors.G, dirs: (t) => [90, t + 90], guides: (t) => [90, t + 90] },
   { id: "G-horiz-slopedown", vertex: (s) => s.anchors.G, dirs: (t) => [180, 180 + t], guides: () => [180] },
   { id: "G-upslope-up", vertex: (s) => s.anchors.G, dirs: (t) => [t, 90], guides: (t) => [t, 90] },
-  { id: "G-mg-upslope", vertex: (s) => s.anchors.G, dirs: (t) => [270, t], guides: (t) => [t] },
   { id: "G-horiz-normalout", vertex: (s) => s.anchors.G, dirs: (t) => [180, t + 90], guides: (t) => [180, t + 90] },
-  { id: "G-horizR-slopedown", vertex: (s) => s.anchors.G, dirs: (t) => [0, 180 + t], guides: () => [0] },
   { id: "T-top", vertex: (s) => s.anchors.T, dirs: (t) => [180 + t, 270] },
 ];
 
@@ -51,15 +47,13 @@ export function classifyAngle(value: number, theta: number): string | null {
   const table: [string, number][] = [
     ["theta", theta],
     ["90-theta", 90 - theta],
-    ["90+theta", 90 + theta],
-    ["180-theta", 180 - theta],
   ];
   const hit = table.filter(([, x]) => Math.abs(x - value) < 0.5);
-  return hit.length === 1 ? hit[0][0] : null; // 2 つ以上当てはまる（θ=45° など）なら使わない
+  return hit.length === 1 ? hit[0][0] : null; // θ=45° のように両方に当てはまるなら使わない
 }
 
-export function generateAngleProblem(stage: StageConfig, rng: Rng): Problem {
-  const pattern = pick(rng, stage.patterns) as Pattern;
+export function generateAngleProblem(stage: StageConfig, slot: Slot, rng: Rng): Problem {
+  const { pattern } = slot;
   // θ と 90°−θ の見分けがつくよう 45° 付近は除外
   const theta = pickTheta(rng, stage.thetaRange, 8);
 
@@ -82,9 +76,9 @@ export function generateAngleProblem(stage: StageConfig, rng: Rng): Problem {
     })
     .filter((e) => e.answer !== null);
 
-  const wantTheta = rng() < (stage.thetaEqualRatio ?? 0.5);
-  const pool = evaluated.filter((e) => (e.answer === "theta") === wantTheta);
-  const chosen = pick(rng, pool.length ? pool : evaluated);
+  const pool = evaluated.filter((e) => e.answer === slot.answer);
+  if (!pool.length) throw new Error(`no angle candidate for ${pattern}:${slot.answer}`);
+  const chosen = pick(rng, pool);
 
   const vertex = chosen.c.vertex(scene);
   const guides: Prim[] = (chosen.c.guides?.(theta) ?? []).map((d) => ({

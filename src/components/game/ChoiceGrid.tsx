@@ -1,5 +1,6 @@
 "use client";
 import { useEffect } from "react";
+import { FIGURE_COLORS } from "@/config/theme";
 import { Tex } from "@/components/ui/Tex";
 import type { Choice } from "@/lib/problems/types";
 
@@ -9,27 +10,41 @@ type Props = {
   reveal: { chosenId: string; correctId: string } | null;
   disabled: boolean;
   onAnswer: (id: string) => void;
+  /** 振り返り画面などで小さく表示するとき */
+  compact?: boolean;
 };
 
-/** 2×2 の 4 択ボタン。PC ではキー 1〜4 でも回答できる */
-export function ChoiceGrid({ choices, reveal, disabled, onAnswer }: Props) {
+/**
+ * 2 択ボタン（並び固定）。左 sin・右 cos の縁を 対辺＝赤／隣辺＝青 にそろえる。
+ * PC ではキー ← → 、1 2 、F J でも回答できる。
+ */
+export function ChoiceGrid({ choices, reveal, disabled, onAnswer, compact = false }: Props) {
   useEffect(() => {
+    if (compact) return;
     const onKey = (e: KeyboardEvent) => {
-      const i = ["1", "2", "3", "4"].indexOf(e.key);
-      if (i >= 0 && choices[i] && !disabled) onAnswer(choices[i].id);
+      const left = ["1", "ArrowLeft", "f", "F"].includes(e.key);
+      const right = ["2", "ArrowRight", "j", "J"].includes(e.key);
+      const i = left ? 0 : right ? 1 : -1;
+      if (i >= 0 && choices[i] && !disabled) {
+        e.preventDefault();
+        onAnswer(choices[i].id);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [choices, disabled, onAnswer]);
+  }, [choices, disabled, onAnswer, compact]);
 
   return (
-    <div className="grid h-full w-full grid-cols-2 grid-rows-2 gap-3">
-      {choices.map((c, i) => {
-        let state = "border-slate-600 bg-slate-800 active:bg-slate-700";
+    <div className="grid h-full w-full grid-cols-2 gap-3">
+      {choices.map((c) => {
+        const toneColor = c.tone === "sin" ? FIGURE_COLORS.opposite : c.tone === "cos" ? FIGURE_COLORS.adjacent : null;
+        let state = "bg-slate-800 active:bg-slate-700";
+        let dim = false;
         if (reveal) {
-          if (c.id === reveal.correctId) state = "border-emerald-400 bg-emerald-900/60";
-          else if (c.id === reveal.chosenId) state = "border-rose-500 bg-rose-950/70 opacity-70";
-          else state = "border-slate-700 bg-slate-800 opacity-40";
+          if (c.id === reveal.correctId) state = "bg-emerald-900/70 ring-4 ring-emerald-400";
+          else if (c.id === reveal.chosenId) state = "bg-slate-800";
+          else dim = true;
+          if (c.id === reveal.chosenId && c.id !== reveal.correctId) dim = true;
         }
         return (
           <button
@@ -41,9 +56,11 @@ export function ChoiceGrid({ choices, reveal, disabled, onAnswer }: Props) {
               e.preventDefault();
               if (!disabled) onAnswer(c.id);
             }}
-            className={`relative flex touch-manipulation select-none items-center justify-center rounded-2xl border-2 text-2xl text-white transition-colors sm:text-3xl ${state}`}
+            style={{ borderColor: toneColor ?? "#475569" }}
+            className={`flex touch-manipulation select-none items-center justify-center rounded-2xl border-4 text-white transition-colors ${
+              compact ? "py-2 text-lg" : "text-3xl sm:text-4xl"
+            } ${state} ${dim ? "opacity-40" : ""}`}
           >
-            <span className="absolute left-2 top-1 hidden text-xs text-slate-500 lg:block">{i + 1}</span>
             <Tex tex={c.tex} />
           </button>
         );

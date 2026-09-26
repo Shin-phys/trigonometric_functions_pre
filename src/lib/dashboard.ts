@@ -7,9 +7,11 @@ export type DashboardStats = {
   playingCount: number;
   resultCount: number;
   avgAccuracy: number | null;
-  avgScore: number | null;
-  topScores: { name: string; score: number; stageId: string; accuracy: number }[];
-  topGrowth: { name: string; growth: number; score: number; prevScore: number; stageId: string }[];
+  /** クリアタイムの中央値（ミリ秒） */
+  medianClearMs: number | null;
+  topTimes: { name: string; clearMs: number; stageId: string; accuracy: number }[];
+  /** ステージごとの到達者数と挑戦者数 */
+  mastery: { stageId: string; mastered: number; players: number }[];
   weakPatterns: { key: string; n: number; wrong: number; rate: number }[];
 };
 
@@ -18,6 +20,7 @@ export function computeStats(
   presence: (PresenceDoc & { uid: string })[],
   stageFilter: string | "all",
   nowMs: number,
+  stageOrder: string[],
 ): DashboardStats {
   const rows = stageFilter === "all" ? results : results.filter((r) => r.stageId === stageFilter);
 
@@ -27,34 +30,34 @@ export function computeStats(
   });
 
   const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+  const med = (xs: number[]) => {
+    if (!xs.length) return null;
+    const a = [...xs].sort((p, q) => p - q);
+    const m = Math.floor(a.length / 2);
+    return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+  };
 
-  // ハイスコア：1 人 1 件（その人の最高スコア）
+  // タイム TOP：1 人 1 件（その人のそのステージの最速）
   const bestByPlayer = new Map<string, ResultDoc>();
   for (const r of rows) {
     const k = `${r.uid}:${r.stageId}`;
     const cur = bestByPlayer.get(k);
-    if (!cur || r.score > cur.score) bestByPlayer.set(k, r);
+    if (!cur || r.clearMs < cur.clearMs) bestByPlayer.set(k, r);
   }
-  const topScores = [...bestByPlayer.values()]
-    .sort((a, b) => b.score - a.score)
+  const topTimes = [...bestByPlayer.values()]
+    .sort((a, b) => a.clearMs - b.clearMs)
     .slice(0, DASHBOARD.topN)
-    .map((r) => ({ name: r.name, score: r.score, stageId: r.stageId, accuracy: r.accuracy }));
+    .map((r) => ({ name: r.name, clearMs: r.clearMs, stageId: r.stageId, accuracy: r.accuracy }));
 
-  // 伸び率：前回スコアとの差（1 人 1 件、最大の伸び）
-  const growthByPlayer = new Map<string, DashboardStats["topGrowth"][number]>();
-  for (const r of rows) {
-    if (r.prevScore === null || r.prevScore === undefined) continue;
-    const g = r.score - r.prevScore;
-    const k = `${r.uid}:${r.stageId}`;
-    const cur = growthByPlayer.get(k);
-    if (!cur || g > cur.growth) {
-      growthByPlayer.set(k, { name: r.name, growth: g, score: r.score, prevScore: r.prevScore, stageId: r.stageId });
-    }
-  }
-  const topGrowth = [...growthByPlayer.values()]
-    .filter((g) => g.growth > 0)
-    .sort((a, b) => b.growth - a.growth)
-    .slice(0, DASHBOARD.topN);
+  // 到達者数：本日 1 回でも到達判定を満たした人
+  const mastery = stageOrder
+    .map((stageId) => {
+      const rs = results.filter((r) => r.stageId === stageId);
+      const players = new Set(rs.map((r) => r.uid));
+      const mastered = new Set(rs.filter((r) => r.mastered).map((r) => r.uid));
+      return { stageId, mastered: mastered.size, players: players.size };
+    })
+    .filter((m) => m.players > 0 && (stageFilter === "all" || m.stageId === stageFilter));
 
   // 誤答率の高い出題パターン
   const agg = new Map<string, { n: number; wrong: number }>();
@@ -77,9 +80,9 @@ export function computeStats(
     playingCount: active.filter((p) => p.status === "playing").length,
     resultCount: rows.length,
     avgAccuracy: avg(rows.map((r) => r.accuracy)),
-    avgScore: avg(rows.map((r) => r.score)),
-    topScores,
-    topGrowth,
+    medianClearMs: med(rows.map((r) => r.clearMs)),
+    topTimes,
+    mastery,
     weakPatterns,
   };
 }

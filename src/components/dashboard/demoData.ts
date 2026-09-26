@@ -6,31 +6,38 @@ const ts = (ms: number) => ({ toMillis: () => ms }) as unknown as Timestamp;
 
 export function demoResults(): ResultDoc[] {
   const names = ["1", "2", "3", "5", "8", "11", "13", "17", "21", "24", "ぴかりん", "たける"];
-  return names.map((name, i) => {
-    const total = 30 + ((i * 7) % 15);
-    const correct = Math.max(10, total - (i % 5) - 1);
-    const accuracy = correct / total;
-    const score = Math.round(correct * 125 * accuracy * accuracy);
-    return {
-      uid: `demo${i}`,
-      name,
-      stageId: i % 3 === 0 ? "S2" : "S1",
-      durationSec: 60,
-      score,
-      correct,
-      total,
-      accuracy,
-      avgMs: 800 + i * 20,
-      prevScore: i % 4 === 0 ? null : score - 150 + i * 23,
-      patternStats: {
-        "S1:vertical:opposite": { n: 10, wrong: 3 + (i % 3) },
-        "S1:vertical:adjacent": { n: 10, wrong: 2 },
-        "S1:horizontal:adjacent": { n: 10, wrong: 1 },
-        "S2:incline:opposite": { n: 6, wrong: 2 },
-        "S2:incline:adjacent": { n: 6, wrong: 1 },
-      },
-    };
+  const rows: ResultDoc[] = [];
+  names.forEach((name, i) => {
+    for (const [j, stageId] of ["S0", "S1", "S1", "S2"].entries()) {
+      const miss = (i + j) % 4;
+      const total = 12 + miss;
+      rows.push({
+        uid: `demo${i}`,
+        name,
+        stageId,
+        clearMs: 11000 + i * 900 + miss * 2100 + j * 400,
+        correct: 12,
+        total,
+        accuracy: 12 / total,
+        medianMs: 650 + i * 45,
+        mastered: miss === 0 && i < 7 && j > 1,
+        patternStats:
+          stageId === "S0"
+            ? {
+                "S0:incline:G-mg-normal": { n: 4, wrong: miss > 0 ? 1 : 0 },
+                "S0:incline:T-top": { n: 4, wrong: miss > 2 ? 1 : 0 },
+                "S0:horizontal:P-alt": { n: 4, wrong: 0 },
+              }
+            : {
+                [`${stageId}:vertical:opposite`]: { n: 3, wrong: miss > 1 ? 1 : 0 },
+                [`${stageId}:vertical:adjacent`]: { n: 3, wrong: miss > 2 ? 1 : 0 },
+                [`${stageId}:horizontal:adjacent`]: { n: 3, wrong: miss > 0 ? 1 : 0 },
+                [`${stageId}:horizontal:opposite`]: { n: 3, wrong: 0 },
+              },
+      });
+    }
   });
+  return rows;
 }
 
 export function demoPresence(): (PresenceDoc & { uid: string })[] {

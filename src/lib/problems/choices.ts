@@ -1,59 +1,31 @@
 /**
- * 選択肢の定義とダミー生成ルール（仕様書 4-③）。
- * 基本モードは直交成分のみ（F, Fsinθ, Fcosθ, mg, mgsinθ, mgcosθ）。
- * tan を含む比率項は発展モード（TAN_CHOICES）にだけ存在する。
+ * 選択肢の定義（仕様書 4-③、v3 で 2 択・並び固定に変更）。
+ * 並びは固定：左 sin・右 cos（ボタンの縁も 対辺＝赤／隣辺＝青 に合わせる）。
+ * 1 つの問題の中で F と mg を混ぜない。tan を含む比率項は発展モードだけ。
  */
 import type { Choice, Role } from "./types";
 
 export type ForceSym = "F" | "mg";
 
-/** 基本モードの選択肢（直交成分のみ） */
-export const BASIC_CHOICES: Record<string, Choice> = {
-  F: { id: "F", tex: "F" },
-  Fsin: { id: "Fsin", tex: "F\\sin\\theta" },
-  Fcos: { id: "Fcos", tex: "F\\cos\\theta" },
-  mg: { id: "mg", tex: "mg" },
-  mgsin: { id: "mgsin", tex: "mg\\sin\\theta" },
-  mgcos: { id: "mgcos", tex: "mg\\cos\\theta" },
-};
-
-const other = (f: ForceSym): ForceSym => (f === "F" ? "mg" : "F");
-
-/**
- * 成分選択問題の 4 択を作る。
- *   対辺/隣辺が正解 X·t(θ) のとき：
- *     ダミー1 X·t'(θ)（sin/cos の混同）
- *     ダミー2 X'·t(θ)（力の名称の混同）
- *     ダミー3 X'·t'(θ)（両方の取り違え）
- *   斜辺が正解 X のとき：X', X·sinθ, X·cosθ
- */
-export function componentChoices(force: ForceSym, role: Role): { correctId: string; choiceIds: string[] } {
-  const o = other(force);
-  if (role === "hypotenuse") {
-    return { correctId: force, choiceIds: [force, o, `${force}sin`, `${force}cos`] };
-  }
-  const t = role === "opposite" ? "sin" : "cos";
-  const t2 = t === "sin" ? "cos" : "sin";
+/** 成分選択（Stage 1〜3）の 2 択。左 sin・右 cos で固定 */
+export function componentChoices(force: ForceSym, role: Exclude<Role, "hypotenuse">): { correctId: string; choices: Choice[] } {
   return {
-    correctId: `${force}${t}`,
-    choiceIds: [`${force}${t}`, `${force}${t2}`, `${o}${t}`, `${o}${t2}`],
+    correctId: `${force}${role === "opposite" ? "sin" : "cos"}`,
+    choices: [
+      { id: `${force}sin`, tex: `${force}\\sin\\theta`, tone: "sin" },
+      { id: `${force}cos`, tex: `${force}\\cos\\theta`, tone: "cos" },
+    ],
   };
 }
 
-/** Stage 0（角度認識）の選択肢。並びは固定（位置で反射できるように） */
+/** Stage 0（角度認識）の 2 択。左 θ・右 90°−θ で固定 */
 export const ANGLE_CHOICES: Choice[] = [
   { id: "theta", tex: "\\theta" },
   { id: "90-theta", tex: "90^\\circ-\\theta" },
-  { id: "90+theta", tex: "90^\\circ+\\theta" },
-  { id: "180-theta", tex: "180^\\circ-\\theta" },
 ];
 
-/** 発展モード（tan との使い分け）の選択肢 */
-export const TAN_CHOICES: Record<string, Choice> = {
-  mgtan: { id: "mgtan", tex: "mg\\tan\\theta" },
-  "mg/cos": { id: "mg/cos", tex: "\\dfrac{mg}{\\cos\\theta}" },
-  mgsin: { id: "mgsin", tex: "mg\\sin\\theta" },
-  mgcos: { id: "mgcos", tex: "mg\\cos\\theta" },
-  "mg/tan": { id: "mg/tan", tex: "\\dfrac{mg}{\\tan\\theta}" },
-  "mg/sin": { id: "mg/sin", tex: "\\dfrac{mg}{\\sin\\theta}" },
-};
+/** 発展モード（tan との使い分け）の 2 択。左 tan・右 1/cos で固定 */
+export const TAN_CHOICES: Choice[] = [
+  { id: "mgtan", tex: "mg\\tan\\theta" },
+  { id: "mg/cos", tex: "\\dfrac{mg}{\\cos\\theta}" },
+];
