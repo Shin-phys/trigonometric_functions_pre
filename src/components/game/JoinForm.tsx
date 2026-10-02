@@ -7,10 +7,11 @@ type Props = {
   initial: Profile | null;
   online: boolean;
   onJoin: (p: Profile) => void;
+  onGuest: () => void;
 };
 
 /** ルーム接続：クラスコード＋出席番号／ニックネーム（仕様書 7-①） */
-export function JoinForm({ initial, online, onJoin }: Props) {
+export function JoinForm({ initial, online, onJoin, onGuest }: Props) {
   const [classCode, setClassCode] = useState(initial?.classCode ?? "");
   const [name, setName] = useState(initial?.name ?? "");
   const code = normalizeClassCode(classCode);
@@ -51,6 +52,19 @@ export function JoinForm({ initial, online, onJoin }: Props) {
         className="rounded-xl bg-amber-400 py-3 text-lg font-bold text-slate-900 disabled:opacity-40"
       >
         {code ? `${code} に参加する` : "ひとりで練習する"}
+      </button>
+      <div className="flex items-center gap-3 text-xs text-slate-500">
+        <span className="h-px flex-1 bg-slate-700" />
+        または
+        <span className="h-px flex-1 bg-slate-700" />
+      </div>
+      <button
+        type="button"
+        onClick={onGuest}
+        className="rounded-xl border-2 border-slate-600 py-3 text-lg font-bold text-slate-200 hover:border-amber-400"
+      >
+        ゲストで遊ぶ
+        <span className="block text-xs font-normal text-slate-400">入力なし・記録は送信しません</span>
       </button>
       {!online && code && (
         <p className="text-center text-xs text-slate-500">

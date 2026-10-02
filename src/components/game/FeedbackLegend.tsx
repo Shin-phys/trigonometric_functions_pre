@@ -3,7 +3,6 @@ import type { GeneratorKind } from "@/config/stages";
 /** 誤答時・振り返り時の凡例（対辺＝赤／隣辺＝青） */
 export function FeedbackLegend({ generator, small = false }: { generator: GeneratorKind; small?: boolean }) {
   const size = small ? "text-xs" : "text-sm";
-  if (generator === "angle") return null;
   if (generator === "tan") {
     return (
       <span className={`${size} font-bold`}>

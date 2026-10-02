@@ -28,7 +28,8 @@ export function generateComponentProblem(stage: StageConfig, slot: Slot, rng: Rn
   let force: ForceSym;
   let kind: "plane" | "incline";
   if (pattern === "incline") {
-    scene = inclineScene(theta, { showDerivedAngle: stage.showDerivedAngle ?? true });
+    // θ は斜面の底角だけに表示する（力の分解側には描かない）
+    scene = inclineScene(theta, { showDerivedAngle: false });
     force = "mg";
     kind = "incline";
   } else if (pattern === "horizontal" || pattern === "vertical") {

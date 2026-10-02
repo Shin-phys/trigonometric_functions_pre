@@ -8,7 +8,7 @@ export function demoResults(): ResultDoc[] {
   const names = ["1", "2", "3", "5", "8", "11", "13", "17", "21", "24", "ぴかりん", "たける"];
   const rows: ResultDoc[] = [];
   names.forEach((name, i) => {
-    for (const [j, stageId] of ["S0", "S1", "S1", "S2"].entries()) {
+    for (const [j, stageId] of ["S1", "S1", "S2", "S3"].entries()) {
       const miss = (i + j) % 4;
       const total = 12 + miss;
       rows.push({
@@ -21,19 +21,12 @@ export function demoResults(): ResultDoc[] {
         accuracy: 12 / total,
         medianMs: 650 + i * 45,
         mastered: miss === 0 && i < 7 && j > 1,
-        patternStats:
-          stageId === "S0"
-            ? {
-                "S0:incline:G-mg-normal": { n: 4, wrong: miss > 0 ? 1 : 0 },
-                "S0:incline:T-top": { n: 4, wrong: miss > 2 ? 1 : 0 },
-                "S0:horizontal:P-alt": { n: 4, wrong: 0 },
-              }
-            : {
-                [`${stageId}:vertical:opposite`]: { n: 3, wrong: miss > 1 ? 1 : 0 },
-                [`${stageId}:vertical:adjacent`]: { n: 3, wrong: miss > 2 ? 1 : 0 },
-                [`${stageId}:horizontal:adjacent`]: { n: 3, wrong: miss > 0 ? 1 : 0 },
-                [`${stageId}:horizontal:opposite`]: { n: 3, wrong: 0 },
-              },
+        patternStats: {
+          [`${stageId}:vertical:opposite`]: { n: 3, wrong: miss > 1 ? 1 : 0 },
+          [`${stageId}:vertical:adjacent`]: { n: 3, wrong: miss > 2 ? 1 : 0 },
+          [`${stageId}:horizontal:adjacent`]: { n: 3, wrong: miss > 0 ? 1 : 0 },
+          [`${stageId}:horizontal:opposite`]: { n: 3, wrong: 0 },
+        },
       });
     }
   });

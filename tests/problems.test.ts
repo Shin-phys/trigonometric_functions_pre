@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { GAME } from "@/config/game";
-import { STAGES, getStage } from "@/config/stages";
+import { STAGES, getStage, goalOf } from "@/config/stages";
 import { buildDeck, createProblemSource, generateFromSlot } from "@/lib/problems";
-import { classifyAngle } from "@/lib/problems/generators/angle";
 import { seeded } from "@/lib/problems/rng";
 import { mirror } from "@/lib/problems/geometry";
 import type { Prim } from "@/lib/problems/types";
@@ -13,10 +11,10 @@ describe("山札（ステージ構成）", () => {
   for (const stage of STAGES) {
     it(`${stage.id}: 1 組の枚数がゴールの正解数と一致し、答えが半々`, () => {
       const deck = buildDeck(stage, seeded(1));
-      expect(deck).toHaveLength(GAME.goalCorrect);
+      expect(deck).toHaveLength(goalOf(stage));
       const answers = new Set(deck.map((d) => d.answer));
       expect(answers.size).toBe(2);
-      for (const a of answers) expect(deck.filter((d) => d.answer === a)).toHaveLength(GAME.goalCorrect / 2);
+      for (const a of answers) expect(deck.filter((d) => d.answer === a)).toHaveLength(goalOf(stage) / 2);
     });
 
     it(`${stage.id}: 山札のどの札からも問題を作れる`, () => {
@@ -26,9 +24,9 @@ describe("山札（ステージ構成）", () => {
       }
     });
 
-    it(`${stage.id}: 最初の 12 問は山札どおりの構成になる`, () => {
+    it(`${stage.id}: 最初の 1 組は山札どおりの構成になる`, () => {
       const src = createProblemSource(stage, seeded(3));
-      const keys = Array.from({ length: GAME.goalCorrect }, () => src.next().statKey);
+      const keys = Array.from({ length: goalOf(stage) }, () => src.next().statKey);
       for (const d of stage.deck) {
         const n = keys.filter((k) => k.startsWith(`${stage.id}:${d.pattern}:`)).length;
         expect(n).toBeGreaterThanOrEqual(d.count);
@@ -84,26 +82,24 @@ describe("基本モード（v3）", () => {
   });
 });
 
-describe("Stage 0：角度認識", () => {
-  const stage = getStage("S0")!;
-
-  it("選択肢は θ と 90°−θ の 2 つだけ", () => {
-    const src = createProblemSource(stage, seeded(7));
-    for (let i = 0; i < 50; i++) expect(src.next().choices.map((c) => c.id)).toEqual(["theta", "90-theta"]);
-  });
-
-  it("θ=45° 付近は出題しない", () => {
-    const src = createProblemSource(stage, seeded(8));
-    for (let i = 0; i < N; i++) expect(Math.abs(src.next().thetaDeg - 45)).toBeGreaterThanOrEqual(8);
-  });
-
-  it("強調された角の実測値が正解と一致する", () => {
-    const src = createProblemSource(stage, seeded(9));
-    for (let i = 0; i < N; i++) {
-      const p = src.next();
-      const arc = p.figure.prims.find((x) => x.kind === "arc" && x.emphasis === "target") as Extract<Prim, { kind: "arc" }>;
-      expect(classifyAngle(arc.endDeg - arc.startDeg, p.thetaDeg)).toBe(p.correctId);
+describe("斜面の図", () => {
+  it("θ は斜面の底角だけに表示し、力の分解側には描かない", () => {
+    for (const id of ["S2", "S3"]) {
+      const src = createProblemSource(getStage(id)!, seeded(12));
+      for (let i = 0; i < 200; i++) {
+        const p = src.next();
+        if (p.pattern !== "incline") continue;
+        const thetaArcs = p.figure.prims.filter((x) => x.kind === "arc" && x.label === "θ");
+        expect(thetaArcs).toHaveLength(1);
+      }
     }
+  });
+});
+
+describe("ステージ構成", () => {
+  it("Stage 0（角度認識）は廃止済み", () => {
+    expect(getStage("S0")).toBeUndefined();
+    expect(STAGES.map((s) => s.id)).toEqual(["S1", "S2", "S3", "A1"]);
   });
 });
 

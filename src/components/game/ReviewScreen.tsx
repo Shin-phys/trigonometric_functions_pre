@@ -58,11 +58,7 @@ export function ReviewScreen({ stage, problems, onDone }: Props) {
         <div className="flex min-h-0 flex-1 flex-col gap-3 p-3 landscape:flex-row">
           <div className="relative flex min-h-0 flex-[3] flex-col rounded-2xl bg-slate-900">
             <p className="px-3 pt-2 text-center text-sm text-slate-400">{current.prompt}</p>
-            <FigureSvg
-              figure={current.figure}
-              feedback={wrongShown && stage.generator !== "angle"}
-              className="min-h-0 w-full flex-1"
-            />
+            <FigureSvg figure={current.figure} feedback={wrongShown} className="min-h-0 w-full flex-1" />
             {wrongShown && (
               <div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center">
                 <FeedbackLegend generator={stage.generator} />

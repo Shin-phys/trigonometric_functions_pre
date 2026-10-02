@@ -3,6 +3,7 @@
  * 生徒用画面（/play）の画面遷移：参加 → ステージ選択 → プレイ → リザルト（→ 復習）
  * URL で固定もできる（教員が配るリンク用）：
  *   /play/?class=1A&stage=S1   … クラス・ステージを指定
+ *   /play/?guest=1             … 入力なしのゲストで始める（stage と組み合わせ可）
  */
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -13,7 +14,7 @@ import { normalizeClassCode } from "@/lib/date";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { saveResult, updatePresence, type PresenceStatus } from "@/lib/firebase/repository";
 import { judgeMastery, summarize, type AnswerLog, type MasteryResult, type PlaySummary } from "@/lib/scoring";
-import { appendHistory, loadHistory, loadProfile, saveProfile, type Profile } from "@/lib/storage/local";
+import { GUEST_PROFILE, appendHistory, loadHistory, loadProfile, saveProfile, type Profile } from "@/lib/storage/local";
 import { GameScreen } from "./GameScreen";
 import { JoinForm } from "./JoinForm";
 import { ResultScreen } from "./ResultScreen";
@@ -40,11 +41,12 @@ export function PlayApp() {
   const params = useSearchParams();
   const fixedStage = getStage(params.get("stage"));
   const classFromUrl = params.get("class");
+  const guestFromUrl = params.get("guest") === "1";
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [initialProfile, setInitialProfile] = useState<Profile | null>(null);
   const [view, setView] = useState<View>({ name: "join" });
-  const [saveState, setSaveState] = useState<"local" | "saving" | "saved" | "error">("local");
+  const [saveState, setSaveState] = useState<"local" | "saving" | "saved" | "error" | "guest">("local");
   const status = useRef<{ status: PresenceStatus; stageId: string | null }>({ status: "lobby", stageId: null });
 
   useEffect(() => {
@@ -86,10 +88,18 @@ export function PlayApp() {
   };
 
   const join = (p: Profile) => {
-    saveProfile(p);
+    if (!p.guest) saveProfile(p); // ゲストは次回の入力欄を上書きしない
     setProfile(p);
     setView(fixedStage ? { name: "game", stage: fixedStage, round: Date.now() } : { name: "select" });
   };
+
+  // /play/?guest=1 なら入力画面を飛ばす
+  useEffect(() => {
+    if (guestFromUrl) join(GUEST_PROFILE);
+    // 初回だけ
+  }, [guestFromUrl]);
+
+  const guest = !!profile?.guest;
 
   // profile 設定直後に presence を送る
   useEffect(() => {
@@ -101,7 +111,7 @@ export function PlayApp() {
   const finish = useCallback(
     (stage: StageConfig) => (logs: AnswerLog[], clearMs: number) => {
       const summary = summarize(logs, clearMs);
-      const history = loadHistory(stage.id);
+      const history = loadHistory(stage.id, guest);
       const prevMs = history.length ? history[history.length - 1].clearMs : null;
       const bestMs = history.length ? Math.min(...history.map((h) => h.clearMs)) : null;
       const entry = {
@@ -113,13 +123,15 @@ export function PlayApp() {
         rts: summary.rts,
         at: Date.now(),
       };
-      appendHistory(entry);
+      appendHistory(entry, guest);
       const mastery = judgeMastery([...history, entry]);
       const wrongLogs = logs.filter((l) => !l.correct);
       setView({ name: "result", stage, summary, wrongLogs, prevMs, bestMs, mastery });
       presence("done", stage.id);
 
-      if (online && classCode) {
+      if (guest) {
+        setSaveState("guest");
+      } else if (online && classCode) {
         setSaveState("saving");
         saveResult(classCode, {
           name: profile?.name ?? "",
@@ -138,7 +150,7 @@ export function PlayApp() {
         setSaveState("local");
       }
     },
-    [online, classCode, profile, presence],
+    [online, classCode, profile, presence, guest],
   );
 
   if (view.name === "game") {
@@ -163,7 +175,7 @@ export function PlayApp() {
         </Link>
         {profile && (
           <button onClick={() => setView({ name: "join" })} className="text-sm text-slate-400">
-            {profile.classCode || "ひとりで練習"}・{profile.name}
+            {guest ? "ゲスト（入力して参加する）" : `${profile.classCode || "ひとりで練習"}・${profile.name}`}
           </button>
         )}
       </header>
@@ -173,9 +185,15 @@ export function PlayApp() {
       </h1>
 
       {view.name === "join" && (
-        <JoinForm key={initialProfile?.classCode ?? "none"} initial={initialProfile} online={online} onJoin={join} />
+        <JoinForm
+          key={initialProfile?.classCode ?? "none"}
+          initial={initialProfile}
+          online={online}
+          onJoin={join}
+          onGuest={() => join(GUEST_PROFILE)}
+        />
       )}
-      {view.name === "select" && <StageSelect onSelect={start} />}
+      {view.name === "select" && <StageSelect guest={guest} onSelect={start} />}
       {view.name === "result" && (
         <ResultScreen
           stage={view.stage}
@@ -185,6 +203,7 @@ export function PlayApp() {
           bestMs={view.bestMs}
           mastery={view.mastery}
           saveState={saveState}
+          guest={guest}
           onRetry={() => start(view.stage)}
           onBack={toSelect}
           onReview={() => setView({ ...view, name: "review" })}

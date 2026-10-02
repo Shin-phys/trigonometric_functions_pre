@@ -12,6 +12,10 @@ export default function Home() {
         <Link href="/play/" className="rounded-2xl bg-amber-400 py-4 text-center text-xl font-bold text-slate-900">
           プレイする（生徒）
         </Link>
+        <Link href="/play/?guest=1" className="rounded-2xl border-2 border-slate-600 py-3 text-center text-lg font-bold text-slate-200">
+          ゲストですぐ遊ぶ
+          <span className="block text-xs font-normal text-slate-400">名前の入力なし</span>
+        </Link>
         <Link href="/dashboard/" className="rounded-2xl bg-slate-800 py-4 text-center text-lg font-bold">
           ダッシュボード（教員・投影用）
         </Link>

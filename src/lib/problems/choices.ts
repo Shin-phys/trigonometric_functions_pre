@@ -18,12 +18,6 @@ export function componentChoices(force: ForceSym, role: Exclude<Role, "hypotenus
   };
 }
 
-/** Stage 0（角度認識）の 2 択。左 θ・右 90°−θ で固定 */
-export const ANGLE_CHOICES: Choice[] = [
-  { id: "theta", tex: "\\theta" },
-  { id: "90-theta", tex: "90^\\circ-\\theta" },
-];
-
 /** 発展モード（tan との使い分け）の 2 択。左 tan・右 1/cos で固定 */
 export const TAN_CHOICES: Choice[] = [
   { id: "mgtan", tex: "mg\\tan\\theta" },

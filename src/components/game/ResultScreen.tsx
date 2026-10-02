@@ -16,14 +16,16 @@ type Props = {
   prevMs: number | null;
   bestMs: number | null;
   mastery: MasteryResult;
-  saveState: "local" | "saving" | "saved" | "error";
+  saveState: "local" | "saving" | "saved" | "error" | "guest";
+  /** ゲストは到達判定を表示しない（気軽に遊ぶモード） */
+  guest?: boolean;
   onRetry: () => void;
   onBack: () => void;
   onReview: () => void;
 };
 
 /** リザルト：クリアタイム・前回比較・到達判定・間違えた問題の図（仕様書 7-①） */
-export function ResultScreen({ stage, summary, wrongLogs, prevMs, bestMs, mastery, saveState, onRetry, onBack, onReview }: Props) {
+export function ResultScreen({ stage, summary, wrongLogs, prevMs, bestMs, mastery, saveState, guest = false, onRetry, onBack, onReview }: Props) {
   const [zoom, setZoom] = useState<AnswerLog | null>(null);
   const diff = prevMs !== null ? summary.clearMs - prevMs : null;
   const newBest = bestMs !== null && summary.clearMs < bestMs;
@@ -53,7 +55,7 @@ export function ResultScreen({ stage, summary, wrongLogs, prevMs, bestMs, master
         <Stat label="反応（中央値）" value={`${formatSec(summary.medianMs)}秒`} />
       </div>
 
-      <MasteryPanel mastery={mastery} />
+      {!guest && <MasteryPanel mastery={mastery} />}
 
       <div className="flex gap-3">
         <button onClick={onBack} className="flex-1 rounded-xl bg-slate-800 py-3 font-bold">
@@ -95,6 +97,7 @@ export function ResultScreen({ stage, summary, wrongLogs, prevMs, bestMs, master
         {saveState === "saved" && "記録を送信しました"}
         {saveState === "error" && "記録を送信できませんでした（この端末には保存済み）"}
         {saveState === "local" && "記録はこの端末に保存しました"}
+        {saveState === "guest" && "ゲストのため記録は送信しません（ベストはこの端末に残ります）"}
       </p>
 
       {zoom && (
@@ -103,7 +106,7 @@ export function ResultScreen({ stage, summary, wrongLogs, prevMs, bestMs, master
             <button className="rounded-lg px-3 py-1 text-slate-400">✕ 閉じる</button>
           </div>
           <p className="text-center text-sm text-slate-400">{zoom.problem.prompt}</p>
-          <FigureSvg figure={zoom.problem.figure} feedback={stage.generator !== "angle"} className="min-h-0 w-full flex-1" />
+          <FigureSvg figure={zoom.problem.figure} feedback className="min-h-0 w-full flex-1" />
           <div className="flex justify-center py-2">
             <FeedbackLegend generator={stage.generator} />
           </div>
@@ -117,7 +120,7 @@ export function ResultScreen({ stage, summary, wrongLogs, prevMs, bestMs, master
 function WrongCard({ log, generator, onClick }: { log: AnswerLog; generator: StageConfig["generator"]; onClick: () => void }) {
   return (
     <button onClick={onClick} className="flex flex-col rounded-2xl bg-slate-900 p-2 text-left active:bg-slate-800">
-      <FigureSvg figure={log.problem.figure} feedback={generator !== "angle"} className="aspect-[4/3] w-full" />
+      <FigureSvg figure={log.problem.figure} feedback className="aspect-[4/3] w-full" />
       <AnswerPair log={log} />
     </button>
   );

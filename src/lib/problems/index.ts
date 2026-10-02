@@ -4,14 +4,12 @@
  * 山札を使い切ったら（誤答で 12 問を超えたとき）同じ構成の山札を新しく切る。
  */
 import type { StageConfig } from "@/config/stages";
-import { generateAngleProblem } from "./generators/angle";
 import { generateComponentProblem } from "./generators/component";
 import { generateTanProblem } from "./generators/tan";
 import { defaultRng, shuffle, type Rng } from "./rng";
 import type { Problem, Slot } from "./types";
 
 const GENERATORS = {
-  angle: generateAngleProblem,
   component: generateComponentProblem,
   tan: generateTanProblem,
 } as const;

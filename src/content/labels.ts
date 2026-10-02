@@ -19,25 +19,12 @@ export const ROLE_LABEL: Record<string, string> = {
   oblique: "斜めの力（1/cos）",
 };
 
-/** Stage 0 の候補角（lib/problems/generators/angle.ts の id）の説明 */
-export const ANGLE_CANDIDATE_LABEL: Record<string, string> = {
-  "O-vec-other": "力ともう一方の軸（90°−θ）",
-  "P-alt": "先端の錯角（θ）",
-  "P-other": "先端の角（90°−θ）",
-  "G-mg-normal": "mg と斜面垂直線（θ）",
-  "G-mg-slope": "mg と斜面（90°−θ）",
-  "G-up-normalout": "鉛直上向きと垂直線の外向き（θ）",
-  "G-horiz-slopedown": "水平線と斜面下向き（θ）",
-  "G-upslope-up": "斜面上向きと鉛直上向き（90°−θ）",
-  "G-horiz-normalout": "水平線と垂直線の外向き（90°−θ）",
-  "T-top": "斜面の頂角（90°−θ）",
-};
 
 /** 誤答集計キー（"S1:vertical:opposite" など）を表示用の文に変換 */
 export function describeStatKey(key: string): { stage: string; text: string } {
   const [stageId, pattern, detail] = key.split(":");
   const stage = getStage(stageId)?.title.replace(/　.*/, "") ?? stageId;
   const p = PATTERN_LABEL[pattern] ?? pattern;
-  const d = ANGLE_CANDIDATE_LABEL[detail] ?? ROLE_LABEL[detail] ?? detail;
+  const d = ROLE_LABEL[detail] ?? detail;
   return { stage, text: `${p}・${d}` };
 }

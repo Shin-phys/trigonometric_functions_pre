@@ -1,13 +1,13 @@
 "use client";
 /**
- * 1 ラウンド（12 問正解でゴール）の進行を管理する。
+ * 1 ラウンド（山札の枚数だけ正解でゴール）の進行を管理する。
  *   countdown → playing → finished
  * 誤答時は wrongLockMs の間「対辺＝赤／隣辺＝青」を表示して操作不可にし、その後は新しい問題へ進む
  * （誤答した問題は正解数に数えない）。
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GAME } from "@/config/game";
-import type { StageConfig } from "@/config/stages";
+import { goalOf, type StageConfig } from "@/config/stages";
 import { createProblemSource, type Problem } from "@/lib/problems";
 import type { AnswerLog } from "@/lib/scoring";
 
@@ -73,7 +73,7 @@ export function useGame(stage: StageConfig) {
 
       if (correct) {
         correctCount.current++;
-        if (correctCount.current >= GAME.goalCorrect) {
+        if (correctCount.current >= goalOf(stage)) {
           // 最後の正解の瞬間でタイムを確定
           const t = now - startAt.current;
           setClearMs(t);
@@ -91,7 +91,7 @@ export function useGame(stage: StageConfig) {
         correct ? GAME.correctPauseMs : GAME.wrongLockMs,
       );
     },
-    [phase, feedback, problem],
+    [phase, feedback, problem, stage],
   );
 
   const correctSoFar = logs.filter((l) => l.correct).length;
